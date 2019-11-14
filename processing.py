@@ -10,6 +10,7 @@ from sklearn.model_selection import cross_val_score
 from warnings import simplefilter
 # ignore all future warnings
 simplefilter(action='ignore', category=FutureWarning)
+from sklearn.model_selection import KFold
 
 def fetch_reviews(filename, sentiment):
 	reviews = []
@@ -79,19 +80,29 @@ def cross_validation_split(data, folds=3):
 			length = len(dataset_copy)
 			# print(len(fold))
 			index = randrange(length)
-			fold.append(dataset_copy.pop(index))
-		dataset_split.append(fold)
-	return dataset_split
+			dataset_copy.pop(index)
+			fold.append(index)
+		dataset_split.append(np.array(fold))
+	return np.array(dataset_split)
 
 def n_fold_cross_validation(X, y, split):
 	scores = []
 	model = LogisticRegression()
-	for train_index, test_index in split:
-	    print("Train Index: ", train_index, "\n")
-	    print("Test Index: ", test_index)
-	    X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
-	    model.fit(X_train, y_train)
-	    scores.append(model.score(X_test, y_test))
+	cv = KFold(n_splits=10, random_state=42, shuffle=False)
+	print(type(split))
+	print(split)
+	i = 0
+	for test_index in split:
+		train_list = []
+		for j in range(0, len(split)):
+			if (i != j):
+				train_list.append(split[j])
+		i += 1
+		train_index = np.concatenate(train_list, axis=None)
+		X_train, X_test, y_train, y_test = X.iloc[train_index], X.iloc[test_index], y.iloc[train_index], y.iloc[test_index]
+		model.fit(X_train, y_train.values.ravel())
+		scores.append(model.score(X_test, y_test))
+	print(np.mean(scores))
 	return model
 
 X_train, X_dev, X_test, y_train, y_dev, y_test = parse_dataset()
@@ -103,4 +114,4 @@ X_train.reset_index(drop=True, inplace=True)
 y_train.reset_index(drop=True, inplace=True)
 df = pd.concat([X_train, y_train], axis=1)
 split = cross_validation_split(df.values.tolist())
-# n_fold_cross_validation(X_train, y_train, split)
+n_fold_cross_validation(X_train, y_train, split)
